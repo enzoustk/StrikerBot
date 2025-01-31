@@ -1,7 +1,7 @@
 import pandas as pd
 
-PLANILHA_BATTLE_8 = pd.read_excel('../StrikerBetBot/arquivos/planilhas/apostas_feitas.xlsx')
-PLANILHA_H2H_8 =pd.read_excel('../sbbh2h/arquivos/planilhas/apostas_feitas.xlsx')
+PLANILHA_BATTLE_8_PATH = '../StrikerBetBot/arquivos/planilhas/apostas_feitas.xlsx'
+PLANILHA_H2H_8_PATH = '../sbbh2h/arquivos/planilhas/apostas_feitas.xlsx'
 FILE_PATH_DADOS = 'a'
 CHAT_ID = 'b'
 

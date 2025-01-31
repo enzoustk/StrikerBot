@@ -2,11 +2,20 @@
 
 import re
 import pandas as pd
+from telegram.ext import ContextTypes
 from datetime import datetime, timedelta
 from telegram import InlineKeyboardButton
-from telegram.ext import ContextTypes
-from constants import LIGA_LABELS
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from constants import PLANILHA_BATTLE_8_PATH, PLANILHA_H2H_8_PATH, LIGA_LABELS
+
+
+def load_planilha_battle():
+    """Carrega a versão mais recente da planilha Battle 8"""
+    return pd.read_excel(PLANILHA_BATTLE_8_PATH)
+
+def load_planilha_h2h():
+    """Carrega a versão mais recente da planilha H2H"""
+    return pd.read_excel(PLANILHA_H2H_8_PATH)
 
 def escape_markdown(text):
     """
@@ -141,32 +150,14 @@ async def processar_escolha_liga_generico(update: Update, context: ContextTypes.
         await exibir_menu_data_grafico(update, context)
 
 def get_dataframe_by_liga(context):
-    from constants import PLANILHA_BATTLE_8, PLANILHA_H2H_8
-
     liga = context.user_data.get("liga")
-    if liga == "battle":
-        # Converte para datetime
-        PLANILHA_BATTLE_8['Horário Envio'] = pd.to_datetime(PLANILHA_BATTLE_8['Horário Envio'], errors='coerce')
-        return PLANILHA_BATTLE_8.copy()
-
-    elif liga == "h2h":
-        PLANILHA_H2H_8['Horário Envio'] = pd.to_datetime(PLANILHA_H2H_8['Horário Envio'], errors='coerce')
-        return PLANILHA_H2H_8.copy()
-
-    elif liga == "todas":
-        # Converter antes de concatenar
-        PLANILHA_BATTLE_8['Horário Envio'] = pd.to_datetime(PLANILHA_BATTLE_8['Horário Envio'], errors='coerce')
-        PLANILHA_H2H_8['Horário Envio'] = pd.to_datetime(PLANILHA_H2H_8['Horário Envio'], errors='coerce')
-
-        df_concat = pd.concat([PLANILHA_BATTLE_8, PLANILHA_H2H_8], ignore_index=True)
-
-        if 'Horário Envio' in df_concat.columns:
-            # Já está em datetime, agora pode ordenar
-            df_concat.sort_values(by='Horário Envio', inplace=True)
-        return df_concat
-    else:
-        raise ValueError("Liga não definida no contexto.")
     
+    if liga == "battle":
+        return load_planilha_battle()
+    elif liga == "h2h":
+        return load_planilha_h2h()
+    else:
+        return pd.concat([load_planilha_battle(), load_planilha_h2h()], ignore_index=True)  
 
 def get_liga_name(context):
     """
