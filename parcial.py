@@ -368,7 +368,7 @@ async def enviar_parcial_com_df(update: Update, context: ContextTypes.DEFAULT_TY
         f"Tipo: Geral\n"
         f"Liga: {liga_escolhida}\n\n"
         f"{resumo_diario_str}"
-        f"\n✅ **Total**: {lucro_total:+.2f}u | {total_apostas} Tips | {roi:.2f}% ROI\n"
+        f"\n{'✅' if lucro_total > 0 else '❌'} **Total**: {lucro_total:+.2f}u | {total_apostas} Tips | {roi:.2f}% ROI\n"
         "\n⬆️ **Over** ⬆️:\n"
         f"Total: {'✅' if total_over > 0 else '❌'} {total_over:+.2f}u | {len(df_over)} Tips | {roi_over:.2f}% ROI\n"
         f"Melhor jogador: {melhor_over}\n"
