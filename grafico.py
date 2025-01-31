@@ -1,3 +1,5 @@
+# grafico.py
+
 import io
 import re
 import seaborn as sns
@@ -10,23 +12,15 @@ from telegram.ext import ContextTypes
 # Import da função genérica para exibir o menu de ligas e obter o DataFrame:
 from common import exibir_menu_ligas, get_dataframe_by_liga
 
-# Se precisar de outras funções (escape_markdown, etc.), importe-as também de common
-# from common import escape_markdown, botao_voltar_anterior  # Exemplo
 
-# ------------------------------------------------------------------------------
-# 1. Fluxo Principal: Início do "Gráfico" (Menu de Ligas)
-# ------------------------------------------------------------------------------
-async def grafico(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Inicia o fluxo de gráficos, exibindo o menu de seleção de ligas.
-    O callback_data seguirá o formato 'liga_battle|grafico', 'liga_h2h|grafico', etc.
-    """
-    await exibir_menu_ligas(update, context, fluxo="grafico")
-
+# --------------------------------------------------------------------------
+#  1. O fluxo de "Gerar Gráficos" agora é chamado dentro do submenu "Resultados"
+#     (sub_gerar_graficos -> processar_escolha_liga_generico -> exibir_menu_data_grafico)
+# --------------------------------------------------------------------------
 
 async def exibir_menu_data_grafico(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
-    Chamado após a escolha de liga (via common.py).
+    Chamado após a escolha de liga (via common.py) com fluxo="grafico".
     Exibe o menu de intervalos de tempo para gerar os gráficos (Hoje, Ontem, 7 dias etc.).
     """
     query = update.callback_query
@@ -41,7 +35,6 @@ async def exibir_menu_data_grafico(update: Update, context: ContextTypes.DEFAULT
         ],
         [
             InlineKeyboardButton("Mês Anterior", callback_data="grafico_mes_anterior"),
-            # InlineKeyboardButton("Outro Intervalo", callback_data="grafico_intervalo"), # Se quiser habilitar
         ],
         [InlineKeyboardButton("Voltar", callback_data="menu_principal")]
     ]
@@ -52,9 +45,7 @@ async def exibir_menu_data_grafico(update: Update, context: ContextTypes.DEFAULT
         reply_markup=reply_markup
     )
 
-# ------------------------------------------------------------------------------
-# 2. Processa escolha de datas -> filtra DataFrame pela liga + data
-# ------------------------------------------------------------------------------
+
 async def processar_botao_grafico(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Processa a escolha do intervalo de tempo para geração dos gráficos.
@@ -62,9 +53,7 @@ async def processar_botao_grafico(update: Update, context: ContextTypes.DEFAULT_
     query = update.callback_query
     await query.answer()
 
-    # Carrega o DataFrame correto, de acordo com a liga armazenada em context.user_data["liga"]
     df = get_dataframe_by_liga(context)
-
     hoje = datetime.now()
 
     if query.data == "grafico_hoje":
@@ -87,13 +76,6 @@ async def processar_botao_grafico(update: Update, context: ContextTypes.DEFAULT_
     elif query.data == "grafico_mes_anterior":
         df_filtrado = filtrar_mes_anterior(df)
         titulo = "Saldo Total - Mês Anterior"
-
-    elif query.data == "grafico_intervalo":
-        # Exemplo: Se quiser usar intervalo personalizado
-        # context.user_data['grafico_esperando_data_inicio'] = True
-        # ...
-        await query.message.edit_text("Funcionalidade de intervalo personalizado em construção...")
-        return
 
     context.user_data['df_filtrado'] = df_filtrado
     context.user_data['titulo'] = titulo
@@ -120,9 +102,7 @@ async def mostrar_opcoes_tipo_grafico(update: Update, context: ContextTypes.DEFA
     else:
         await update.message.reply_text("Escolha o tipo de gráfico:", reply_markup=reply_markup)
 
-# ------------------------------------------------------------------------------
-# 3. Processa tipo de gráfico -> gera gráficos
-# ------------------------------------------------------------------------------
+
 async def processar_tipo_grafico(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Processa o tipo de gráfico selecionado e gera os gráficos.
@@ -134,19 +114,18 @@ async def processar_tipo_grafico(update: Update, context: ContextTypes.DEFAULT_T
     df_filtrado = context.user_data.get('df_filtrado')
     titulo = context.user_data.get('titulo')
 
-    # Se por acaso o df_filtrado estiver vazio
     if df_filtrado is None or df_filtrado.empty:
         await query.message.edit_text(
-            "❌ Nenhum dado encontrado. Tente novamente.",
+            "❌ Nenhum dado encontrado para gerar gráficos.",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Voltar", callback_data="grafico")]])
         )
         return
 
-    await query.message.edit_text(f"⏳ Gerando gráficos...", parse_mode="Markdown")
+    await query.message.edit_text("⏳ Gerando gráficos...")
     await gerar_graficos(update, query, df_filtrado, titulo, tipo_grafico)
 
 # ------------------------------------------------------------------------------
-# 4. Gera e envia gráficos
+# Geração dos gráficos
 # ------------------------------------------------------------------------------
 async def gerar_graficos(update, query, df, titulo, tipo_grafico):
     """Gera os gráficos de acordo com o tipo solicitado: Totais, Hot Tips ou Ambos."""
@@ -158,12 +137,15 @@ async def gerar_graficos(update, query, df, titulo, tipo_grafico):
         if not df_hottips.empty:
             await gerar_graficos_individuais(query, df_hottips, f"{titulo} - Hot Tips")
 
+
 async def gerar_graficos_individuais(query, df, titulo):
     """
-    Gera os 3 gráficos (exemplo) conforme o estilo do seu código original
-    e envia via Telegram.
+    Gera 3 gráficos de exemplo e envia via Telegram:
+      1) Saldo por Tipo de Aposta
+      2) Top 5 Jogadores
+      3) Lucro Acumulado
     """
-    # Exemplo do primeiro gráfico: Saldo por Tipo de Aposta
+    # Gráfico 1: Saldo por Tipo de Aposta
     combined_performance = df.groupby('Tipo Aposta')['P/L'].sum().reset_index()
     combined_performance['Tipo Aposta'] = combined_performance['Tipo Aposta'].fillna("Saldo Total")
     combined_performance.loc[len(combined_performance)] = ['Saldo Total', df['P/L'].sum()]
@@ -185,7 +167,7 @@ async def gerar_graficos_individuais(query, df, titulo):
     plt.title(f"{titulo}", fontsize=14, weight='bold')
     await enviar_grafico(query, plt)
 
-    # Gráfico 2: Top 5 Jogadores (código adaptado do seu original)
+    # Gráfico 2: Top 5 Jogadores
     top_5_players = get_top_5_players(df)
     top_5_players['color'] = calcular_cor_paleta(top_5_players, 'P/L')
 
@@ -205,7 +187,7 @@ async def gerar_graficos_individuais(query, df, titulo):
     await enviar_grafico(query, plt)
 
     # Gráfico 3: Lucro Acumulado
-    df = df.copy()  # Evitar SettingWithCopyWarning
+    df = df.copy()
     df['Lucro Acumulado'] = df['P/L'].cumsum()
     plt.figure(figsize=(10, 6))
     plt.plot(range(len(df)), df['Lucro Acumulado'],
@@ -221,7 +203,6 @@ async def enviar_grafico(query, plt):
     """
     Salva o gráfico em buffer e envia pelo Telegram.
     """
-    import io
     buffer = io.BytesIO()
     plt.tight_layout()
     plt.savefig(buffer, format='png')
@@ -229,18 +210,15 @@ async def enviar_grafico(query, plt):
     await query.message.reply_photo(photo=buffer)
     plt.close()
 
+
 # ------------------------------------------------------------------------------
-# 5. Funções auxiliares para filtros, top 5 players etc. 
+# Funções auxiliares de filtro e cálculo
 # ------------------------------------------------------------------------------
 def filtrar_intervalo_custom(df, data_inicio, data_fim):
-    """
-    Filtra o DataFrame já carregado (conforme a liga escolhida) por data_inicio e data_fim (DD/MM).
-    """
     df = df.copy()
     df['Horário Envio'] = pd.to_datetime(df['Horário Envio'])
-    df['Data'] = df['Horário Envio'].dt.strftime('%d/%m')  # Comparar strings DD/MM
+    df['Data'] = df['Horário Envio'].dt.strftime('%d/%m')
 
-    di = min(df['Data']) if not df.empty else data_inicio
     df_filtrado = df[
         (df['Data'] >= data_inicio) &
         (df['Data'] <= data_fim) &
@@ -249,9 +227,6 @@ def filtrar_intervalo_custom(df, data_inicio, data_fim):
     return df_filtrado
 
 def filtrar_ultimos_7_dias(df):
-    """
-    Filtra as últimas 7 datas do DF (incluindo a atual).
-    """
     df = df.copy()
     df['Horário Envio'] = pd.to_datetime(df['Horário Envio'])
     df['Data'] = df['Horário Envio'].dt.date
@@ -264,9 +239,6 @@ def filtrar_ultimos_7_dias(df):
     return df_filtrado
 
 def filtrar_mes_atual(df):
-    """
-    Filtra o mês atual no DF.
-    """
     df = df.copy()
     df['Horário Envio'] = pd.to_datetime(df['Horário Envio'])
     df['Data'] = df['Horário Envio'].dt.date
@@ -280,9 +252,6 @@ def filtrar_mes_atual(df):
     return df_filtrado
 
 def filtrar_mes_anterior(df):
-    """
-    Filtra o mês anterior no DF.
-    """
     df = df.copy()
     df['Horário Envio'] = pd.to_datetime(df['Horário Envio'])
     df['Data'] = df['Horário Envio'].dt.date
@@ -304,9 +273,6 @@ def filtrar_mes_anterior(df):
     return df_filtrado
 
 def get_top_5_players(df):
-    """
-    Extrai os 5 jogadores com maior saldo acumulado (P/L) a partir das colunas 'Time Casa' e 'Time Fora'.
-    """
     df = df.copy()
 
     def extract_player_name(team_name):
@@ -332,21 +298,16 @@ def get_top_5_players(df):
     return top_5_players
 
 def calcular_cor_paleta(df, col_valor):
-    """
-    Gera cores usando paletas do Seaborn para valores positivos e negativos.
-    """
-    import seaborn as sns
     max_valor = df[col_valor].abs().max()
-
     paleta_verde = sns.light_palette("green", n_colors=10)
     paleta_vermelha = sns.light_palette("red", n_colors=10)
 
     def mapear_cor(valor):
         if valor > 0:
-            idx = int((valor / max_valor) * 9)
+            idx = int((valor / max_valor) * 9) if max_valor else 0
             return paleta_verde[min(idx, 9)]
         elif valor < 0:
-            idx = int((abs(valor) / max_valor) * 9)
+            idx = int((abs(valor) / max_valor) * 9) if max_valor else 0
             return paleta_vermelha[min(idx, 9)]
         return (1, 1, 1)
 
